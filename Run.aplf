@@ -1,0 +1,170 @@
+ {r}←{dl}Run args;nb;cell;type;line;back;input;i;⎕IO;⎕ML;cr;lf;l;box;cmd;words;spc;eol;djr;json
+ ⎕IO←1 ⋄ ⎕ML←1 ⋄ (cr lf)←⎕UCS 13 10
+
+ :If 900⌶⍬
+     dl←0
+ :EndIf
+
+ :If 0≠≢djr←2 ⎕NQ #'GetEnvironment' 'DYALOG_JUPYTER_RUN' ⍝ config param overrides all
+     args←,⊂djr
+ :EndIf
+
+ :If 0=≢∊args
+     args←,⊂50 ⎕ATX⊃⎕SI ⍝ whence are we?
+ :EndIf
+
+ :If ⎕SE≠{⍵.##}⍣≡⎕THIS ⍝ not calling from ⎕SE
+     r←dl((⎕SE.⎕NS ⍬).(⍎⎕FX)⎕NR⊃⎕SI)args ⍝ call from ⎕SE
+     :Return
+ :EndIf
+
+ :If ~'.ipynb' ''∊⍨3⌷⎕NPARTS⊃args ⍝ bad ext
+     (⊃args)←⊃⎕NPARTS⊃args ⍝ just path then
+ :EndIf
+
+ :If 1=1 ⎕NINFO⊃args ⍝ dir
+     args←1↑⊃⎕NINFO⍠1⊢(⊃args),'/*.ipynb' ⍝ first found proper file
+ :EndIf
+
+ dl↑⍨←2
+ r←0
+
+ 'box'⎕CY'dfns'
+
+ :Trap 0
+     nb←0 ⎕JSON⊃⎕NGET⊃args
+ :Else
+     ⎕SIGNAL⊂⎕DMX.(('EN'EN)('EM'EM)('Message'(OSError{⍵,2⌽(×≢⊃⍬⍴2⌽⍺,⊂'')/'") ("',⊃⍬⍴2⌽⍺}Message))) ⍝ resignal
+ :EndTrap
+
+ i←1
+ eol←0
+ input←''
+ :While i∊⍳≢nb.cells
+     cell←nb.cells[i].source~¨lf
+     :If 0=≢cell
+         i+←1
+         :Continue
+     :EndIf
+     type←nb.cells[i].cell_type
+     :Select type
+     :Case 'code'
+         :For l :In ⍳≢cell
+             line←l⊃cell
+             {⍞←⍵⊣⎕DL 0⌈dl(16808⌶)'Normal'⍬}¨(eol⍴cr),'      ',line ⋄ eol←1
+             :If ¯1≠⊃dl
+             :AndIf l=≢cell
+                 input←⍞ ⋄ eol←0
+                 :Select ⊃⌽input
+                 :Case '→'
+                     :Return
+                 :Case '←'
+                     i-←⊥⍨'←'=input
+                     :Continue
+                 :Case '∘'
+                     (1+⊃⎕LC)⎕STOP⊃⎕SI
+                 :EndSelect
+             :Else
+                 eol←1
+             :EndIf
+             :Select ⊃line~' '
+             :Case ']'
+                 ⎕SE.UCMD line ⋄ eol←0
+             :Case ')'
+                 (cmd args)←2↑'\)(\w+)' ' ?(.*)'⎕S'\u1' '\1'⊢line
+                 words←'\S+'⎕S'&'⊢args
+                 spc←⊃⎕RSI
+                 :Trap 0
+                     :Select cmd
+                     :Case 'CLEAR'
+                         #.⎕EX #.⎕NL-⍳9
+                         #.(⎕LX ⎕TRAP ⎕WSID)←''(0⍴⊂⍬' ' '')''
+                         #.(⎕CT ⎕DIV ⎕IO ⎕ML ⎕PP ⎕RL ⎕RTL ⎕WX ⎕USING ⎕AVU ⎕DCT ⎕FR)←1E¯14 0 1 1 10(⍬ 1)0 3(0⍴⊂'')1E¯28 645
+                         ⍞←(eol⍴cr),'clear ws' ⋄ eol←1
+                     :CaseList 'CMD' 'SH'
+                         ⎕←⎕SH args ⋄ eol←0
+                     :Case 'COPY'
+                         :If 1=≢words
+                             spc.⎕CY⊃words
+                         :Else
+                             (1↓words)spc.⎕CY⊃words
+                         :EndIf
+                         ⍞←(eol⍴cr),'copied',∊' ',¨1↓words ⋄ eol←1
+                     :Case 'ED'
+                         (∩⎕ED~)∘'∇→∊-⍟○∘'&¨words
+                     :Case 'ERASE'
+                         spc.⎕EX words ⋄ eol←0
+                     :Case 'FNS'
+                         ⎕←spc ⎕SE.UCMD'fnslike' ⋄ eol←0
+                     :Case 'LOAD'
+                         #.⎕EX #.⎕NL-⍳9
+                         #.⎕CY args⊣args #.⎕CY⍨'⎕',¨⎕A(∊⍨⊂⊢)'LxSmTrapWsidTnameCtDivIoMlPpRlRtlWxUsingAvuDctFr'
+                         ⍞←(eol⍴cr),'loaded',cr ⋄ eol←0
+                         ⍎⎕LX
+                     :Case 'NS'
+                         ⎕←args spc.⎕NS ⍬ ⋄ eol←0
+                     :CaseList 'OBS' 'OBJECTS'
+                         ⎕←sps ⎕SE.UCMD'obslike' ⋄ eol←0
+                     :Case 'OFF'
+                         ⎕OFF
+                     :Case 'TID'
+                         ⍞←eol⍴cr
+                         :If 0=≢words
+                             ⍞←'is ',⍕⎕TID
+                         :Else
+                             ⍞←')',cmd,' not supported in demo mode'
+                         :EndIf
+                         eol←1
+                     :Case 'VARS'
+                         ⎕←sps ⎕SE.UCMD'varslike' ⋄ eol←0
+                     :Case 'WSID'
+                         ⍞←eol⍴cr
+                         :If 0=≢words
+                             ⍞←'is ',⎕WSID
+                         :ElseIf 1=≢words
+                             ⍞←'was ',⎕WSID
+                             ⎕WSID←⊃words
+                         :Else
+                             ⍞←'unacceptable char'
+                         :EndIf
+                         eol←1
+                     :Case 'XLOAD'
+                         #.⎕EX #.⎕NL-⍳9
+                         #.⎕CY args⊣args #.⎕CY⍨'⎕',¨⎕A(∊⍨⊂⊢)'LxSmTrapWsidTnameCtDivIoMlPpRlRtlWxUsingAvuDctFr'
+                         ⍞←(eol⍴cr),'loaded'
+                         eol←1
+                     :Else
+                         ⍞←(eol⍴cr),')',cmd,' not supported in demo mode'
+                         eol←1
+                     :EndSelect
+                 :Else
+                     ⍞←(eol⍴cr),⎕DMX.Message ⋄ eol←1
+                 :EndTrap
+             :Else
+                 :Trap 0
+                     line←'⎕load'⎕R'{⍎⎕LX⊣#.(⎕CY⍵⊣⍵⎕CY⍨''⎕'',¨⎕A(∊⍨⊂⊢)''LxSmTrapWsidTnameCtDivIoMlPpRlRtlWxUsingAvuDctFr''⊣⎕EX⎕NL-⍳10)}'⍠1⍠'Regex' 0⊢line
+                     line←'⎕clear'⎕R'(#.(⎕LX ⎕TRAP ⎕WSID ⎕CT ⎕DIV ⎕IO ⎕ML ⎕PP ⎕RL ⎕RTL ⎕WX ⎕USING ⎕AVU ⎕DCT ⎕FR)←''''(0⍴⊂⍬'' '' '''')''''1E¯14 0 1 1 10(⍬ 1)0 3(0⍴⊂'''')1E¯28 645⊣⎕EX⎕NL-⍳10)'⍠1⍠'Regex' 0⊢line
+                     1(85⌶)'1(86⌶)line' ⍝ Execute 1 level up the stack (unofficial); error 85 if no-result
+                     eol←0
+                 :Case 85
+                     eol←1
+                 :Else ⍝ emulate error display
+                     ⍞←(eol⍴cr),(⊢↓⍨'⍎'=⊃)⎕DMX.(OSError{⍵,2⌽(×≢⊃⍬⍴2⌽⍺,⊂'')/'") ("',⊃⍬⍴2⌽⊆⍺}Message{⍵,⍺,⍨': '/⍨×≢⍺}⊃⍬⍴DM,⊂'')
+                     ⍞←∊cr,¨1↓⎕DMX.DM
+                     eol←1
+                 :EndTrap
+             :EndSelect
+         :EndFor
+     :Case 'markdown'
+         cell←'^#+ '⎕R' '⊢cell ⍝ remove #s from headings
+         ⍞←(~eol)↓∊cr,¨↓box(¯3+⎕PW)↑⍤1↑'^```.*'⎕R{3=≢⍵.Match:'' ⋄ '─┤',3↓⍵.Match,'├─'}cell ⍝ format code block
+         eol←1
+     :EndSelect
+     :If ¯1≠⊃dl
+         input←⍞ ⋄ eol←0
+         :If '→'=⊃⌽input
+             :Return
+         :EndIf
+     :EndIf
+     i+←1-⊥⍨'←'=input
+ :EndWhile
